@@ -830,3 +830,125 @@ if (!function_exists('convertSlash')) {
 	}
 
 }
+
+/**
+ * Builds an HTTP query string, similar to PHP5's http_build_query(), but taking care of null values and empty arrays.
+ *
+ * Like http_build_query(), it relies on PHP's 'arg_separator.output' configuration option.
+ * For the complete capabilities of this implementation take a look at BasicTest::testbuildQuery()
+ *
+ * @link http://www.php.net/manual/en/function.http-build-query.php#109466
+ * @link http://www.php.net/manual/en/function.http-build-query.php#60523
+ * @see Strongly based on Hash::flatten() implementation
+ * @param array $query Of key value pairs to be used in the query
+ * @param string $separator Argument separator to use, by default the INI setting arg_separator.output will be used, or '&' if neither is set
+ * @return string Http query string.
+ */
+function buildQuery($query, $separator = '&') {
+	if (is_string($query)) {
+		return ltrim($query, '?');
+	}
+
+	if (empty($separator) && !($separator = ini_get('arg_separator.output'))) {
+		$separator = '&';
+	}
+
+	$_query = array();
+	$stack = array();
+	$path = null;
+	$open = '[';
+	$close = ']';
+
+	reset($query);
+	while (!empty($query)) {
+		$key = key($query);
+		$value = $query[$key];
+		unset($query[$key]);
+
+		if (is_array($value) && !empty($value)) {
+			if (!empty($query)) {
+				$stack[] = array($query, $path);
+			}
+			$query = $value;
+			$path .= $key . ($path !== null ? $close : '') . $open;
+		} else {
+			if ($value === '0' || $value === 0 || $value === false) {
+				$value = (int)$value;
+			} elseif (empty($value)) {
+				$value = '';
+			}
+			$_query[] = urlencode($path . $key . ($path !== null ? $close : '')) . '=' . urlencode($value);
+		}
+
+		if (empty($query) && !empty($stack)) {
+			list($query, $path) = array_pop($stack);
+		}
+	}
+	return implode($separator, $_query);
+}
+
+/**
+ * This function can be thought of as a reverse to PHP5's http_build_query(), and similar to parse_str().
+ *
+ * It takes a given query string and turns it into an array and supports nesting by using the php bracket syntax.
+ * So this means you can parse queries like:
+ *
+ * - ?key[subKey]=value
+ * - ?key[]=value1&key[]=value2
+ *
+ * A leading '?' mark in $query is optional and does not effect the outcome of this function.
+ * For the complete capabilities of this implementation take a look at BasicTest::testparseQuery()
+ *
+ * @param string|array $query A query string to parse into an array or an array to return directly "as is"
+ * @return array The $query parsed into a possibly multi-level array. If an empty $query is
+ *     given, an empty array is returned.
+ */
+function parseQuery($query) {
+	if (is_array($query)) {
+		return $query;
+	}
+
+	$parsedQuery = array();
+
+	if (is_string($query) && !empty($query)) {
+		$items = explode('&', ltrim($query, '?'));
+
+		foreach ($items as $item) {
+			if (strpos($item, '=') === false) {
+				$item .= '=';
+			}
+			list($key, $value) = array_map('urldecode', explode('=', $item, 2));
+
+			if (preg_match_all('/\[([^\[\]]*)\]/iUs', $key, $matches)) {
+				$subKeys = $matches[1];
+				$rootKey = substr($key, 0, strpos($key, '['));
+				if (!empty($rootKey)) {
+					array_unshift($subKeys, $rootKey);
+				}
+				$queryNode =& $parsedQuery;
+
+				foreach ($subKeys as $subKey) {
+					if (!is_array($queryNode)) {
+						$queryNode = array();
+					}
+
+					if ($subKey === '') {
+						$queryNode[] = array();
+						end($queryNode);
+						$subKey = key($queryNode);
+					}
+					$queryNode =& $queryNode[$subKey];
+				}
+				$queryNode = $value;
+				continue;
+			}
+			if (!isset($parsedQuery[$key])) {
+				$parsedQuery[$key] = $value;
+			} else {
+				$parsedQuery[$key] = (array)$parsedQuery[$key];
+				$parsedQuery[$key][] = $value;
+			}
+		}
+	}
+	return $parsedQuery;
+}

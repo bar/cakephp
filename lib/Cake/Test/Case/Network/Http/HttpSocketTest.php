@@ -126,16 +126,6 @@ class TestHttpSocket extends HttpSocket {
 /**
  * Convenience method for testing protected method
  *
- * @param string|array $query A query string to parse into an array or an array to return directly "as is"
- * @return array The $query parsed into a possibly multi-level array. If an empty $query is given, an empty array is returned.
- */
-	public function parseQuery($query) {
-		return parent::_parseQuery($query);
-	}
-
-/**
- * Convenience method for testing protected method
- *
  * @param array $request Needs to contain a 'uri' key. Should also contain a 'method' key, otherwise defaults to GET.
  * @param string $versionToken The version token to use, defaults to HTTP/1.1
  * @return string Request line
@@ -1404,110 +1394,6 @@ class HttpSocketTest extends CakeTestCase {
 
 		$r = $this->Socket->buildUri(array('scheme' => 'foo', 'host' => 'www.cakephp.org'));
 		$this->assertEquals('foo://www.cakephp.org:80/', $r);
-	}
-
-/**
- * Asserts that HttpSocket::parseQuery is working properly
- *
- * @return void
- */
-	public function testParseQuery() {
-		$this->Socket->reset();
-
-		$query = $this->Socket->parseQuery(array('framework' => 'cakephp'));
-		$this->assertEquals(array('framework' => 'cakephp'), $query);
-
-		$query = $this->Socket->parseQuery('');
-		$this->assertEquals(array(), $query);
-
-		$query = $this->Socket->parseQuery('framework=cakephp');
-		$this->assertEquals(array('framework' => 'cakephp'), $query);
-
-		$query = $this->Socket->parseQuery('?framework=cakephp');
-		$this->assertEquals(array('framework' => 'cakephp'), $query);
-
-		$query = $this->Socket->parseQuery('a&b&c');
-		$this->assertEquals(array('a' => '', 'b' => '', 'c' => ''), $query);
-
-		$query = $this->Socket->parseQuery('value=12345');
-		$this->assertEquals(array('value' => '12345'), $query);
-
-		$query = $this->Socket->parseQuery('a[0]=foo&a[1]=bar&a[2]=cake');
-		$this->assertEquals(array('a' => array(0 => 'foo', 1 => 'bar', 2 => 'cake')), $query);
-
-		$query = $this->Socket->parseQuery('a[]=foo&a[]=bar&a[]=cake');
-		$this->assertEquals(array('a' => array(0 => 'foo', 1 => 'bar', 2 => 'cake')), $query);
-
-		$query = $this->Socket->parseQuery('a[][]=foo&a[][]=bar&a[][]=cake');
-		$expectedQuery = array(
-			'a' => array(
-				0 => array(
-					0 => 'foo'
-				),
-				1 => array(
-					0 => 'bar'
-				),
-				array(
-					0 => 'cake'
-				)
-			)
-		);
-		$this->assertEquals($expectedQuery, $query);
-
-		$query = $this->Socket->parseQuery('a[][]=foo&a[bar]=php&a[][]=bar&a[][]=cake');
-		$expectedQuery = array(
-			'a' => array(
-				array('foo'),
-				'bar' => 'php',
-				array('bar'),
-				array('cake')
-			)
-		);
-		$this->assertEquals($expectedQuery, $query);
-
-		$query = $this->Socket->parseQuery('user[]=jim&user[3]=tom&user[]=bob');
-		$expectedQuery = array(
-			'user' => array(
-				0 => 'jim',
-				3 => 'tom',
-				4 => 'bob'
-			)
-		);
-		$this->assertEquals($expectedQuery, $query);
-
-		$queryStr = 'user[0]=foo&user[0][items][]=foo&user[0][items][]=bar&user[][name]=jim&user[1][items][personal][]=book&user[1][items][personal][]=pen&user[1][items][]=ball&user[count]=2&empty';
-		$query = $this->Socket->parseQuery($queryStr);
-		$expectedQuery = array(
-			'user' => array(
-				0 => array(
-					'items' => array(
-						'foo',
-						'bar'
-					)
-				),
-				1 => array(
-					'name' => 'jim',
-					'items' => array(
-						'personal' => array(
-							'book'
-							, 'pen'
-						),
-						'ball'
-					)
-				),
-				'count' => '2'
-			),
-			'empty' => ''
-		);
-		$this->assertEquals($expectedQuery, $query);
-
-		$query = 'openid.ns=example.com&foo=bar&foo=baz';
-		$result = $this->Socket->parseQuery($query);
-		$expected = array(
-			'openid.ns' => 'example.com',
-			'foo' => array('bar', 'baz')
-		);
-		$this->assertEquals($expected, $result);
 	}
 
 /**

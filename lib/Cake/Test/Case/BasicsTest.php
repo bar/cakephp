@@ -960,4 +960,236 @@ EXPECTED;
 		$result = pluginSplit('Blog.Post', false, 'Ultimate');
 		$this->assertEquals(array('Blog', 'Post'), $result);
 	}
+
+/**
+ * Test that buildQuery() is working properly.
+ *
+ * Also, test PHP5's http_build_query() to contrast the difference.
+ *
+ * @return void
+ */
+	public function testBuildQuery() {
+		$expected = 'framework=cakephp';
+		$this->assertEquals($expected, buildQuery('framework=cakephp'));
+		$this->assertEquals($expected, buildQuery('?framework=cakephp'));
+
+		$test = array(
+			'First' => 'value1',
+			'Second' => array(
+				'Key1' => array(
+					'Key2' => 'value 2'
+				),
+				'Key3' => array(
+					'Key4' => 'lála'
+				)
+			),
+			'True' => true,
+			'False' => false,
+			'EmptyString1' => '',
+			'NestedArray.1' => array(
+				'' => 'value.3'
+			),
+			'NestedArray.2' => array(
+				'EmptyString2' => '',
+				'EmptyArray1' => array()
+			),
+			'EmptyArray2' => array(),
+			'Null' => null
+		);
+
+		// Separator not being set
+		// 'First=value1&Second[Key1][Key2]=value+2&Second[Key3][Key4]=lála&True=1&False=0&EmptyString1=&NestedArray.1[]=value.3&NestedArray.2[EmptyString2]=';
+		// 'First=value1&Second[Key1][Key2]=value+2&Second[Key3][Key4]=lála&True=1&False=0&EmptyString1=&NestedArray.1[]=value.3&NestedArray.2[EmptyString2]=&NestedArray.2[EmptyArray1]=&EmptyArray2=&Null=';
+		$expected     = 'First=value1&Second%5BKey1%5D%5BKey2%5D=value+2&Second%5BKey3%5D%5BKey4%5D=l%C3%A1la&True=1&False=0&EmptyString1=&NestedArray.1%5B%5D=value.3&NestedArray.2%5BEmptyString2%5D=';
+		$cakeExpected = 'First=value1&Second%5BKey1%5D%5BKey2%5D=value+2&Second%5BKey3%5D%5BKey4%5D=l%C3%A1la&True=1&False=0&EmptyString1=&NestedArray.1%5B%5D=value.3&NestedArray.2%5BEmptyString2%5D=&NestedArray.2%5BEmptyArray1%5D=&EmptyArray2=&Null=';
+		$query1 = http_build_query($test, null, '&');
+		$this->assertEquals($expected, $query1);
+		$query2 = buildQuery($test);  // not set, use default
+		$this->assertEquals($cakeExpected, $query2);
+
+		// Unbuild (aka parse)
+		$parsedExpected1 = array(
+			'First' => 'value1',
+			'Second' => array(
+				'Key1' => array(
+					'Key2' => 'value 2'
+				),
+				'Key3' => array(
+					'Key4' => 'lála'
+				)
+			),
+			'True' => '1',
+			'False' => '0',
+			'EmptyString1' => '',
+			'NestedArray.1' => array(
+				0 => 'value.3'
+			),
+			'NestedArray.2' => array(
+				'EmptyString2' => ''
+			)
+		);
+		$parsedExpected2 = array(
+			'First' => 'value1',
+			'Second' => array(
+				'Key1' => array(
+					'Key2' => 'value 2'
+				),
+				'Key3' => array(
+					'Key4' => 'lála'
+				)
+			),
+			'True' => '1',
+			'False' => '0',
+			'EmptyString1' => '',
+			'NestedArray.1' => array(
+				0 => 'value.3'
+			),
+			'NestedArray.2' => array(
+				'EmptyString2' => '',
+				'EmptyArray1' => ''
+			),
+			'EmptyArray2' => '',
+			'Null' => ''
+		);
+		$this->assertEquals($parsedExpected1, parseQuery($query1));
+		$this->assertEquals($parsedExpected2, parseQuery($query2));
+
+		// Setting separator
+		$expected     = 'First=value1&amp;Second%5BKey1%5D%5BKey2%5D=value+2&amp;Second%5BKey3%5D%5BKey4%5D=l%C3%A1la&amp;True=1&amp;False=0&amp;EmptyString1=&amp;NestedArray.1%5B%5D=value.3&amp;NestedArray.2%5BEmptyString2%5D=';
+		$cakeExpected = 'First=value1&amp;Second%5BKey1%5D%5BKey2%5D=value+2&amp;Second%5BKey3%5D%5BKey4%5D=l%C3%A1la&amp;True=1&amp;False=0&amp;EmptyString1=&amp;NestedArray.1%5B%5D=value.3&amp;NestedArray.2%5BEmptyString2%5D=&amp;NestedArray.2%5BEmptyArray1%5D=&amp;EmptyArray2=&amp;Null=';
+		$query = http_build_query($test, null, '&amp;');
+		$this->assertEquals($expected, $query);
+		$query = buildQuery($test, '&amp;');  // set
+		$this->assertEquals($cakeExpected, $query);
+
+		// Unsetting separator
+		$separator = '|';
+		$oldSeparator = ini_set('arg_separator.output', $separator);
+		$this->assertEquals($separator, ini_get('arg_separator.output'));
+		$expected     = 'First=value1|Second%5BKey1%5D%5BKey2%5D=value+2|Second%5BKey3%5D%5BKey4%5D=l%C3%A1la|True=1|False=0|EmptyString1=|NestedArray.1%5B%5D=value.3|NestedArray.2%5BEmptyString2%5D=';
+		$cakeExpected = 'First=value1|Second%5BKey1%5D%5BKey2%5D=value+2|Second%5BKey3%5D%5BKey4%5D=l%C3%A1la|True=1|False=0|EmptyString1=|NestedArray.1%5B%5D=value.3|NestedArray.2%5BEmptyString2%5D=|NestedArray.2%5BEmptyArray1%5D=|EmptyArray2=|Null=';
+		$query = http_build_query($test);
+		$this->assertEquals($expected, $query);
+		$query = buildQuery($test, null);  // unset, rely on PHP's 'arg_separator.output' configuration option
+		$this->assertEquals($cakeExpected, $query);
+
+		// Booleans and Empty values
+		$test = array(
+			'True1' => true,
+			'True2' => 1,
+			'True3' => '1',
+			'False1' => false,
+			'False2' => 0,
+			'False3' => '0',
+			'Empty' => ''
+		);
+		$expected     = 'True1=1&True2=1&True3=1&False1=0&False2=0&False3=0&Empty=';
+		$cakeExpected = 'True1=1&True2=1&True3=1&False1=0&False2=0&False3=0&Empty=';
+		$query1 = http_build_query($test, null, '&');
+		$this->assertEquals($expected, $query1);
+		$query2 = buildQuery($test);
+		$this->assertEquals($cakeExpected, $query2);
+	}
+
+/**
+ * Asserts that HttpSocket::parseQuery is working properly
+ *
+ * @return void
+ */
+	public function testParseQuery() {
+		$query = parseQuery(array('framework' => 'cakephp'));
+		$this->assertEquals(array('framework' => 'cakephp'), $query);
+
+		$query = parseQuery('');
+		$this->assertEquals(array(), $query);
+
+		$query = parseQuery('framework=cakephp');
+		$this->assertEquals(array('framework' => 'cakephp'), $query);
+
+		$query = parseQuery('?framework=cakephp');
+		$this->assertEquals(array('framework' => 'cakephp'), $query);
+
+		$query = parseQuery('a&b&c');
+		$this->assertEquals(array('a' => '', 'b' => '', 'c' => ''), $query);
+
+		$query = parseQuery('value=12345');
+		$this->assertEquals(array('value' => '12345'), $query);
+
+		$query = parseQuery('a[0]=foo&a[1]=bar&a[2]=cake');
+		$this->assertEquals(array('a' => array(0 => 'foo', 1 => 'bar', 2 => 'cake')), $query);
+
+		$query = parseQuery('a[]=foo&a[]=bar&a[]=cake');
+		$this->assertEquals(array('a' => array(0 => 'foo', 1 => 'bar', 2 => 'cake')), $query);
+
+		$query = parseQuery('a[][]=foo&a[][]=bar&a[][]=cake');
+		$expectedQuery = array(
+			'a' => array(
+				0 => array(
+					0 => 'foo'
+				),
+				1 => array(
+					0 => 'bar'
+				),
+				array(
+					0 => 'cake'
+				)
+			)
+		);
+		$this->assertEquals($expectedQuery, $query);
+
+		$query = parseQuery('a[][]=foo&a[bar]=php&a[][]=bar&a[][]=cake');
+		$expectedQuery = array(
+			'a' => array(
+				array('foo'),
+				'bar' => 'php',
+				array('bar'),
+				array('cake')
+			)
+		);
+		$this->assertEquals($expectedQuery, $query);
+
+		$query = parseQuery('user[]=jim&user[3]=tom&user[]=bob');
+		$expectedQuery = array(
+			'user' => array(
+				0 => 'jim',
+				3 => 'tom',
+				4 => 'bob'
+			)
+		);
+		$this->assertEquals($expectedQuery, $query);
+
+		$queryStr = 'user[0]=foo&user[0][items][]=foo&user[0][items][]=bar&user[][name]=jim&user[1][items][personal][]=book&user[1][items][personal][]=pen&user[1][items][]=ball&user[count]=2&empty';
+		$query = parseQuery($queryStr);
+		$expectedQuery = array(
+			'user' => array(
+				0 => array(
+					'items' => array(
+						'foo',
+						'bar'
+					)
+				),
+				1 => array(
+					'name' => 'jim',
+					'items' => array(
+						'personal' => array(
+							'book',
+							'pen'
+						),
+						'ball'
+					)
+				),
+				'count' => '2'
+			),
+			'empty' => ''
+		);
+		$this->assertEquals($expectedQuery, $query);
+
+		$query = 'openid.ns=example.com&foo=bar&foo=baz';
+		$result = parseQuery($query);
+		$expected = array(
+			'openid.ns' => 'example.com',
+			'foo' => array('bar', 'baz')
+		);
+		$this->assertEquals($expected, $result);
+	}
 }

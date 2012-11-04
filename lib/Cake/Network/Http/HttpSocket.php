@@ -323,7 +323,7 @@ class HttpSocket extends CakeSocket {
 		$this->request['auth'] = $this->_auth;
 
 		if (is_array($this->request['body'])) {
-			$this->request['body'] = http_build_query($this->request['body']);
+			$this->request['body'] = buildQuery($this->request['body']);
 		}
 
 		if (!empty($this->request['body']) && !isset($this->request['header']['Content-Type'])) {
@@ -661,7 +661,7 @@ class HttpSocket extends CakeSocket {
 		}
 
 		$uri['path'] = preg_replace('/^\//', null, $uri['path']);
-		$uri['query'] = http_build_query($uri['query']);
+		$uri['query'] = buildQuery($uri['query']);
 		$uri['query'] = rtrim($uri['query'], '=');
 		$stripIfEmpty = array(
 			'query' => '?%query',
@@ -740,83 +740,13 @@ class HttpSocket extends CakeSocket {
 		}
 
 		if (array_key_exists('query', $uri)) {
-			$uri['query'] = $this->_parseQuery($uri['query']);
+			$uri['query'] = parseQuery($uri['query']);
 		}
 
 		if (!array_intersect_key($uriBase, $uri)) {
 			return false;
 		}
 		return $uri;
-	}
-
-/**
- * This function can be thought of as a reverse to PHP5's http_build_query(). It takes a given query string and turns it into an array and
- * supports nesting by using the php bracket syntax. So this means you can parse queries like:
- *
- * - ?key[subKey]=value
- * - ?key[]=value1&key[]=value2
- *
- * A leading '?' mark in $query is optional and does not effect the outcome of this function.
- * For the complete capabilities of this implementation take a look at HttpSocketTest::testparseQuery()
- *
- * @param string|array $query A query string to parse into an array or an array to return directly "as is"
- * @return array The $query parsed into a possibly multi-level array. If an empty $query is
- *     given, an empty array is returned.
- */
-	protected function _parseQuery($query) {
-		if (is_array($query)) {
-			return $query;
-		}
-
-		$parsedQuery = array();
-
-		if (is_string($query) && !empty($query)) {
-			$query = preg_replace('/^\?/', '', $query);
-			$items = explode('&', $query);
-
-			foreach ($items as $item) {
-				if (strpos($item, '=') !== false) {
-					list($key, $value) = explode('=', $item, 2);
-				} else {
-					$key = $item;
-					$value = null;
-				}
-
-				$key = urldecode($key);
-				$value = urldecode($value);
-
-				if (preg_match_all('/\[([^\[\]]*)\]/iUs', $key, $matches)) {
-					$subKeys = $matches[1];
-					$rootKey = substr($key, 0, strpos($key, '['));
-					if (!empty($rootKey)) {
-						array_unshift($subKeys, $rootKey);
-					}
-					$queryNode =& $parsedQuery;
-
-					foreach ($subKeys as $subKey) {
-						if (!is_array($queryNode)) {
-							$queryNode = array();
-						}
-
-						if ($subKey === '') {
-							$queryNode[] = array();
-							end($queryNode);
-							$subKey = key($queryNode);
-						}
-						$queryNode =& $queryNode[$subKey];
-					}
-					$queryNode = $value;
-					continue;
-				}
-				if (!isset($parsedQuery[$key])) {
-					$parsedQuery[$key] = $value;
-				} else {
-					$parsedQuery[$key] = (array)$parsedQuery[$key];
-					$parsedQuery[$key][] = $value;
-				}
-			}
-		}
-		return $parsedQuery;
 	}
 
 /**
