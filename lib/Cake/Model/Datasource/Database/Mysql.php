@@ -704,34 +704,132 @@ class Mysql extends DboSource {
 	}
 
 /**
- * Tell if a MySQL column description is a valid enumerated column type.
+ * Helper method used to get the contents of an enumerated colum type.
+ *
+ * @param string $real Real database-layer column type (i.e. "enum('dog','cat')")
+ * @return string
+ */
+	protected function _enumerationValues($real) {
+		if (preg_match('/^\s*\b(?:enum|set)\s*\(\s*(\'.*?\')\s*\)\s*$/', $real, $result)) {
+#			debug($result[1]);
+			return $result[1];
+#		if (preg_match('/^\s*\b(?:enum|set)\s*\((.+?)\)\s*$/', $real, $result)) {
+#			debug(trim($result[1]));
+#			return trim($result[1]);
+		}
+		return '';
+	}
+
+/**
+ * Build an array from the values of a valid enumerated column type.
+ *
+ * @param string $values Valid enumerated column type values.
+ * @param string $delimiter Delimiter character
+ * @param string $enclosure Enclosure character
+ * @param string $escape Escape character
+ * @return array Array of strings.
+ */
+	protected function _enumerationToArray($values, $delimiter = ',', $enclosure = '\'', $escape = '\\') {
+		$regex = $enclosure . '\s*' . $delimiter . '\s*' . $enclosure;
+		$values = preg_split('/' . $regex . '/', substr($values, 1, -1));
+		foreach ($values as $k => $v) {
+			$values[$k] = str_replace($escape . $enclosure, $enclosure, $v);
+		}
+		return($values);
+	}
+
+/**
+ * Build a valid enumerated column type value from an array.
+ *
+ * @param array $values Array of strings.
+ * @param string $delimiter Delimiter character
+ * @param string $enclosure Enclosure character
+ * @param string $escape Escape character
+ * @return string Valid enumerated column type values.
+ */
+	protected function _arrayToEnumeration($values, $delimiter = ',', $enclosure = '\'', $escape = '\\') {
+		foreach ($values as $k => $v) {
+			$values[$k] = str_replace($enclosure, $escape . $enclosure, $v);
+		}
+		return $enclosure . implode($enclosure . $delimiter . $enclosure, $values) . $enclosure;
+	}
+
+/**
+ * Tell if a MySQL column description has the shape of an enumerated column type.
  *
  * @param string $real Real database-layer column type (i.e. "enum('dog','cat')")
  * @return boolean
  */
-	public function isEnumeration($real) {
-		$values = '\s*(?:\s*([\'\"])[\w\s]+\1)(?:\s*,\s*(?:([\'\"])[\w\s]+\2))+\s*';
-		if (preg_match('/\s*\b(?:enum|set)\s*\(' . $values . '\)/', $real, $a)) {
+	public function isEnumeration2($real) {
+		if (!$_values = $this->_enumerationValues($real)) {
+			return false;
+		}
+
+#		$value = '[\w\s\'\"]*';
+#		$value = '(.*)';
+//		$value = '([\w\s\'\"\\\\]*)';
+
+		//'values' => array('', '', ','','),
+
+		debug($_values);
+#		debug(substr($_values, 1, -1));
+
+		if (preg_match('/(?:\'(.*?)\')(?:,\'(.*?)\')*/', $_values, $a)) {
+			debug($a);
 			return true;
+		}
+		return false;
+
+
+#		if (preg_match_all('/' . $values . '/', $_values, $a)) {
+#			debug($a);
+#		}
+#return;
+
+##		$values = '\s*(?:\s*(?P<a>[\'\"])' . $value . '(?P=a))(?:\s*,\s*(?:(?P<b>[\'\"])' . $value . '(?P=b)))*\s*';
+#		$values = '\'' . $value . '(?P=a))(?:,(?:(?P<b>[\'\"])' . $value . '(?P=b)))*';
+##		$values = '(?:(?P<a>[\'\"])' . $value . '(?P=a))(?:,(?:(?P<b>[\'\"])' . $value . '(?P=b)))*';
+
+#		if (preg_match('/^\s*\b(?:enum|set)\s*\(' . $values . '\)\s*$/', $real, $a)) {
+#			debug($a);
+#			return true;
+#		}
+#		return false;
+	}
+
+/**
+ * Tell if a MySQL column description has the shape of an enumerated column type.
+ *
+ * Note: Because testing for a valid enumerated field before impacting the DB can became awkward using regex,
+ * the purpose of this function is to test for an enumeration column type to have a content.
+ *
+ * @see Mysql::enumerationValues().
+ * @param string $real Real database-layer column type (i.e. "enum('dog','cat')")
+ * @return boolean
+ */
+	public function isEnumeration($real) {
+		if ($values = $this->_enumerationValues($real)) {
+			return true;
+#			if (strpos($values, '\'') === 0 && strpos(strrev($values), '\'') === 0) {
+#				return true;
+#			}
 		}
 		return false;
 	}
 
 /**
- * Gets the values of a MySQL column description from an enumerated column type.
+ * Attempts to get the values of a MySQL column description from an enumerated column type.
+ *
+ * It's not magic, when comma/apostrophe abusing is present, it may fail miserably.
  *
  * @param string $real Real database-layer column type (i.e. "enum('dog','cat')")
  * @return array An array representing the values.
  */
 	public function enumerationValues($real) {
-		if (!preg_match('/\s*\b(?:enum|set)\s*\((.+)\)/', $real, $result)) {
-			return array();
+		if ($values = $this->_enumerationValues($real)) {
+			return $this->_enumerationToArray($values);
 		}
-		$values = array();
-		foreach (explode(',', $result[1]) as $v) {
-			$values[] = trim(trim($v), '\'"');
-		}
-		return $values;
+		return array();
 	}
 
 /**
@@ -742,8 +840,8 @@ class Mysql extends DboSource {
  * @return string
  */
 	public function buildColumn($column) {
-		$name = $type = null;
-		extract($column);
+		$name = isset($column['name']) ? $column['name'] : null;
+		$type = isset($column['type']) ? $column['type'] : null;
 
 		if (empty($name) || empty($type)) {
 			trigger_error(__d('cake_dev', 'Column name or type not defined in schema'), E_USER_WARNING);
@@ -756,25 +854,25 @@ class Mysql extends DboSource {
 		}
 
 		if (($type === 'enum' || $type === 'set')) {
-			if (!isset($values) || empty($values) || !is_array($values)) {
+			if (!isset($column['values']) || empty($column['values']) || !is_array($column['values'])) {
 				trigger_error(__d('cake_dev', "Column type %s does not have values set.", $type), E_USER_WARNING);
 				return null;
 			}
 
-			if (isset($default)) {
-				$default = (array)$default;
+			if (isset($column['default'])) {
+				$default = (array)$column['default'];
 				if ($type === 'enum') {
 					$default = (array)$default[0];
 				}
 				foreach ($default as $_default) {
-					if (!in_array($_default, $values, true)) {
+					if (!in_array($_default, $column['values'], true)) {
 						trigger_error(__d('cake_dev', "Invalid default value for column %s.", $name), E_USER_WARNING);
 						return null;
 					}
 				}
 				$column['default'] = implode(',', $default);
 			}
-			$column['length'] = '\'' . implode('\',\'', $values) . '\'';
+			$column['length'] = $this->_arrayToEnumeration($column['values']);
 		}
 
 		return parent::buildColumn($column);
