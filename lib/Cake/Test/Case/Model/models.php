@@ -930,6 +930,11 @@ class Post extends CakeTestModel {
  * @var array
  */
 	public $belongsTo = array('Author');
+#	public $hasOne = array(
+#				'Attachment' => array(
+#					'className' => 'ModifiedAttachment',
+#					'foreignKey' => 'comment_id',
+#				));
 
 	public function beforeFind($queryData) {
 		if (isset($queryData['connection'])) {
@@ -4944,7 +4949,7 @@ class GuildsPlayer extends CakeTestModel {
 	public $belongsTo = array(
 		'Player',
 		'Guild',
-		);
+	);
 }
 
 /**
@@ -4958,7 +4963,7 @@ class Armor extends CakeTestModel {
 
 	public $hasAndBelongsToMany = array(
 		'Player' => array('with' => 'ArmorsPlayer'),
-		);
+	);
 }
 
 /**
@@ -5028,5 +5033,189 @@ class CustomArticle extends AppModel {
 			$this->findMethods['unPublished'] = 'true again';
 		}
 	}
+
+}
+
+/**
+ * DeepArticle class
+ *
+ * @package       Cake.Test.Case.Model
+ */
+class DeepArticle extends CakeTestModel {
+
+/**
+ * name property
+ *
+ * @var string
+ */
+	public $name = 'Article';
+
+/**
+ * hasOne property
+ *
+ * @var array
+ */
+#	public $hasOne = array('Featured' => array(
+#		'className' => 'DeepFeatured',
+#		'foreignKey' => 'article_featured_id'
+#	));
+
+/**
+ * belongsTo property
+ *
+ * @var array
+ */
+#	public $belongsTo = array('User' => array(
+#		'className' => 'DeepUser'
+#	));
+
+/**
+ * hasMany property
+ *
+ * @var array
+ */
+	public $hasMany = array('Comment' => array(
+		'className' => 'DeepComment'
+	));
+
+/**
+ * hasAndBelongsToMany property
+ *
+ * @var array
+ */
+#	public $hasAndBelongsToMany = array('Tag' => array(
+#		'className' => 'DeepTag',
+#		'with' => 'ArticlesTag'
+#	));
+
+/**
+ * afterFind callback
+ *
+ * @return void
+ */
+	public function afterFind($results, $primary = false) {
+		$counter = 1;
+		if (!empty($results[0][$this->alias]['_counter'])) {
+			$counter += $results[0][$this->alias]['_counter'];
+		}
+		$results[0][$this->alias]['_counter'] = $counter;
+#debug($results);
+		return $results;
+	}
+}
+
+/**
+ * DeepFeatured class
+ *
+ * @package       Cake.Test.Case.Model
+ */
+class DeepFeatured extends CakeTestModel {
+
+/**
+ * name property
+ *
+ * @var string
+ */
+	public $name = 'Featured';
+
+/**
+ * belongsTo property
+ *
+ * @var array
+ */
+#	public $belongsTo = array('Article' => array(
+#		'className' => 'DeepArticle',
+#		'foreignKey' => 'article_featured_id'
+#	));
+
+/**
+ * afterFind callback
+ *
+ * @return void
+ */
+	public function afterFind($results, $primary = false) {
+		$counter = 1;
+		if (!empty($results[0][$this->alias]['_counter'])) {
+			$counter += $results[0][$this->alias]['_counter'];
+		}
+		$results[0][$this->alias]['_counter'] = $counter;
+#debug($results);
+		return $results;
+	}
+}
+
+/**
+ * DeepUser class
+ *
+ * @package       Cake.Test.Case.Model
+ */
+class DeepUser extends CakeTestModel {
+
+/**
+ * name property
+ *
+ * @var string
+ */
+	public $name = 'User';
+
+/**
+ * belongsTo property
+ *
+ * @var array
+ */
+	public $hasMany = array('Article' => array(
+		'className' => 'DeepArticle'
+	));
+
+}
+
+/**
+ * DeepComment class
+ *
+ * @package       Cake.Test.Case.Model
+ */
+class DeepComment extends CakeTestModel {
+
+/**
+ * name property
+ *
+ * @var string
+ */
+	public $name = 'Comment';
+
+/**
+ * belongsTo property
+ *
+ * @var array
+ */
+	public $belongsTo = array('Article' => array(
+		'className' => 'DeepArticle'
+	));
+
+}
+
+/**
+ * DeepTag class
+ *
+ * @package       Cake.Test.Case.Model
+ */
+class DeepTag extends CakeTestModel {
+
+/**
+ * name property
+ *
+ * @var string
+ */
+	public $name = 'Tag';
+
+/**
+ * belongsTo property
+ *
+ * @var array
+ */
+	public $hasAndBelongsToMany = array('Article' => array(
+		'className' => 'DeepArticle',
+		'with' => 'ArticlesTag'
+	));
 
 }

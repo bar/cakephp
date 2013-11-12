@@ -5116,6 +5116,58 @@ class ModelReadTest extends BaseModelTest {
 	}
 
 /**
+ * testDeeperAssociationAfterFind2 method
+ *
+ * @return void
+ */
+	public function testDeeperAssociationAfterFind2() {
+		$this->loadFixtures('Article', 'Featured', 'User', 'Comment', 'Tag', 'ArticlesTag');
+		$Article = new DeepArticle();
+
+		$result = $Article->find('first', array(
+			'conditions' => array('Article.id' => 2),
+			'recursive' => 2
+		));
+#debug($result);
+#		$Article->recursive = 2;
+#		$result = $Article->read(null, 2);
+		$expected = array(
+			'Article' => array(
+				'id' => '2',
+				'user_id' => '3',
+				'title' => 'Second Article',
+				'body' => 'Second Article Body',
+				'published' => 'Y',
+				'created' => '2007-03-18 10:41:23',
+				'updated' => '2007-03-18 10:43:31',
+				'_counter' => 1
+			),
+			'Featured' => array(
+				'id' => '2',
+				'article_featured_id' => '2',
+				'category_id' => '1',
+				'published_date' => '2007-03-31 10:39:23',
+				'end_date' => '2007-05-15 10:39:23',
+				'created' => '2007-03-18 10:39:23',
+				'updated' => '2007-03-18 10:41:31',
+				'_counter' => 1,
+#				'Article' => array(
+#					'id' => '2',
+#					'user_id' => '3',
+#					'title' => 'Second Article',
+#					'body' => 'Second Article Body',
+#					'published' => 'Y',
+#					'created' => '2007-03-18 10:41:23',
+#					'updated' => '2007-03-18 10:43:31',
+#					'_counter' => 1
+#				)
+			)
+		);
+
+#		$this->assertEquals($expected, $result);
+	}
+
+/**
  * Tests that callbacks can be properly disabled
  *
  * @return void
