@@ -394,6 +394,8 @@ class Query extends DatabaseQuery {
  * Populates or adds parts to current query clauses using an array.
  * This is handy for passing all query clauses at once.
  *
+ * Note: 'limit' must always be set before 'page'.
+ *
  * ## Example:
  *
  * {{{
@@ -431,18 +433,26 @@ class Query extends DatabaseQuery {
  * @return \Cake\ORM\Query
  */
 	public function applyOptions(array $options) {
+		if (empty($options)) {
+			return $this;
+		}
+
 		$valid = [
 			'fields' => 'select',
 			'conditions' => 'where',
 			'join' => 'join',
 			'order' => 'order',
-			'limit' => 'limit',
 			'offset' => 'offset',
 			'group' => 'group',
 			'having' => 'having',
 			'contain' => 'contain',
 			'page' => 'page',
 		];
+
+		if (isset($options['limit'])) {
+			$this->limit($options['limit']);
+			unset($options['limit']);
+		}
 
 		foreach ($options as $option => $values) {
 			if (isset($valid[$option]) && isset($values)) {
